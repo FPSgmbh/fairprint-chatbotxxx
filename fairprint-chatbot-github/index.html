@@ -1,0 +1,79 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FairPrint Chatbot (mit Fehleranzeige)</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 0; }
+    #chatbot {
+      position: fixed; bottom: 20px; right: 20px;
+      width: 320px; border: 1px solid #ccc;
+      border-radius: 10px; background: white; padding: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1); z-index: 9999;
+    }
+    #chatlog { height: 300px; overflow-y: auto; border-bottom: 1px solid #ddd; margin-bottom: 10px; padding: 5px; }
+    #userInput { width: 100%; padding: 8px; }
+  </style>
+</head>
+<body>
+
+<div id="chatbot">
+  <div id="chatlog"></div>
+  <input id="userInput" type="text" placeholder="Deine Frage..."/>
+</div>
+
+<script>
+  const chatlog = document.getElementById('chatlog');
+  const input = document.getElementById('userInput');
+
+  function appendMessage(sender, text) {
+    const p = document.createElement('p');
+    p.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    chatlog.appendChild(p);
+    chatlog.scrollTop = chatlog.scrollHeight;
+  }
+
+  async function sendToProxy(message) {
+    appendMessage('Du', message);
+    const thinkingMsg = document.createElement('p');
+    thinkingMsg.innerHTML = "<strong>Bot:</strong> Denke nach...";
+    chatlog.appendChild(thinkingMsg);
+    chatlog.scrollTop = chatlog.scrollHeight;
+
+    try {
+      const response = await fetch('/.netlify/functions/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+
+      if (!response.ok) {
+        thinkingMsg.innerHTML = `<strong>Bot:</strong> ⚠️ Fehler beim Senden: ${response.status} - ${response.statusText}`;
+        return;
+      }
+
+      const data = await response.json();
+      thinkingMsg.innerHTML = `<strong>Bot:</strong> ${data.reply}`;
+    } catch (error) {
+      thinkingMsg.innerHTML = `<strong>Bot:</strong> ⚠️ Netzwerkfehler: ${error.message}`;
+    }
+  }
+
+  input.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter' && input.value.trim() !== '') {
+      sendToProxy(input.value.trim());
+      input.value = '';
+    }
+  });
+
+  window.onload = () => {
+    setTimeout(() => {
+      appendMessage('Bot', 'Hey 👋 Brauchst du einen Drucker? Frag mich alles über unsere Angebote!');
+    }, 500);
+  };
+</script>
+
+</body>
+</html>
